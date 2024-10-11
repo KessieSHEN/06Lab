@@ -1,0 +1,151 @@
+---
+title: "Lab06_TextMining"
+format: html
+editor: visual
+author: Kessie SHEN
+embed-resources: true
+---
+
+## Read in Medical Transcriptions
+
+```{r}
+library(tidytext)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(data.table)
+mt_samples <- read_csv("https://raw.githubusercontent.com/USCbiostats/data-science-data/master/00_mtsamples/mtsamples.csv")
+mt_samples <- mt_samples %>%
+  select(description, medical_specialty, transcription)
+
+head(mt_samples)
+```
+
+## Question 1: What specialties do we have?
+
+```{r}
+mt_samples %>%
+  count(medical_specialty, sort = TRUE)
+# a visual distribution 
+mt_samples %>%
+  count(medical_specialty, sort = TRUE) %>%
+  ggplot(aes(x = reorder(medical_specialty, n), y = n)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Number of Transcription Samples per Medical Specialty",
+       x = "Medical Specialty",
+       y = "Number of Samples") +
+  theme_minimal()
+```
+
+## Question 2
+
+```{r}
+#Tokenize the the words in the transcription column
+tokens <- mt_samples %>%
+  unnest_tokens(word, transcription)
+#Count the number of times each token appears
+word_counts <- tokens %>%
+  count(word, sort = TRUE)
+#Visualize the top 20 most frequent words
+top_20_words <- word_counts %>%
+  slice_max(n, n = 20)
+ggplot(top_20_words, aes(x = reorder(word, n), y = n)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Words in Transcriptions",
+       x = "Word",
+       y = "Frequency") +
+  theme_minimal()
+
+
+```
+
+## Question 3
+
+```{r}
+#remove stopwords
+cleaned_word_counts <- mt_samples %>%
+  unnest_tokens(word, transcription) %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!grepl("\\d", word)) %>%
+  count(word, sort = TRUE)
+# Redo visualization
+top_cleaned_words <- cleaned_word_counts %>%
+  top_n(20, n)
+ggplot(top_cleaned_words, aes(x = reorder(word, n), y = n)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Words (Stopwords & Numbers Removed)",
+       x = "Word",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+## Question 4
+
+```{r}
+mt_samples_bigrams <- mt_samples %>%
+  unnest_tokens(bigram, transcription, token = "ngrams", n = 2)
+bigram_count <- mt_samples_bigrams %>%
+  count(bigram, sort = TRUE)
+bigram_count %>%
+  top_n(20) %>%
+  ggplot(aes(x = reorder(bigram, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Bi-grams", x = "Bi-gram", y = "Count")
+mt_samples_trigrams <- mt_samples %>%
+  unnest_tokens(trigram, transcription, token = "ngrams", n = 3)
+trigram_count <- mt_samples_trigrams %>%
+  count(trigram, sort = TRUE)
+trigram_count %>%
+  top_n(20) %>%
+  ggplot(aes(x = reorder(trigram, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Tri-grams", x = "Tri-gram", y = "Count")
+```
+
+## Question 5
+
+```{r}
+library(stringr)
+pick_a_word <- "the left"
+
+mt_samples_bigrams %>%
+  filter(str_detect(bigram, pick_a_word)) %>%
+  count(bigram, sort = TRUE) 
+```
+
+## Question 6
+
+```{r}
+mt_samples %>%
+  unnest_tokens(word, transcription) %>%
+  anti_join(stop_words) %>%
+  filter(!grepl("\\d", word)) %>%
+  group_by(medical_specialty) %>%
+  count(word, sort = TRUE) %>%
+  top_n(5) %>%
+  ungroup() %>%
+ ggplot(aes(x = reorder(word, n), y = n, fill = medical_specialty)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ medical_specialty, scales = "free") +
+  coord_flip() +
+  labs(x = "Word", y = "Count", title = "Top 5 Most Frequent Words by Specialty")
+
+```
+
+## Question 7 - extra
+
+```{r}
+library(wordcloud)
+
+mt_samples %>%
+  unnest_tokens(word, transcription) %>%
+  anti_join(stop_words) %>%
+  count(word, sort = TRUE) %>%
+  with(wordcloud(word, n, max.words = 100))
+
+```
